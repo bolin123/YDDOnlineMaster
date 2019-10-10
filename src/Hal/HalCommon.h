@@ -9,9 +9,10 @@
 #include "HalFlash.h"
 #include "HalWait.h"
 #include "HalRTC.h"
-#include "HalADC.h"
-#include "HalDAC.h"
+//#include "HalADC.h"
+//#include "HalDAC.h"
 #include "HalExti.h"
+#include "HalPWM.h"
 
 //void HalCommonWakeup(void);
 //void HalCommonFallasleep(void);

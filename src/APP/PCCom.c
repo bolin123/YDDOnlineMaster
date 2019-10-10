@@ -20,19 +20,11 @@ typedef enum
     PCCOM_PROTO_CMD_REBOOT,
 }PCComProtoCmd_t;
 
-typedef struct
-{
-    uint8_t head[2];
-    uint8_t addr;
-    uint8_t cmd;
-    uint8_t length;
-    uint8_t data[];
-}PCComProto_t;
-
 static uint8_t g_recvBuff[128];
 static uint16_t g_buffcount = 0;
 static volatile bool g_gotframe = false;
-static bool g_startReportData = false;
+//static bool g_startReportData = false;
+static PCComEventHandle_t g_eventHandle;
 
 static uint8_t crc(uint8_t *data, uint32_t len)
 {
@@ -87,7 +79,7 @@ static void pccomDataRecv(uint8_t *data, uint16_t len)
         }
         else if(g_buffcount == 3)
         {
-            if(data[i] != SysGetComAddr())
+            if(data[i] != SysCommAddressGet())
             {
                 g_buffcount = 0;
             }
@@ -120,7 +112,7 @@ static void pccomDataSend(PCComProtoCmd_t cmd, uint8_t *data, uint16_t length)
 
     proto->head[0] = PCCOM_PROTO_HEAD1;
     proto->head[1] = PCCOM_PROTO_HEAD2;
-    proto->addr = SysGetComAddr();
+    proto->addr = SysCommAddressGet();
     proto->cmd = (uint8_t)cmd;
     proto->length = length;
     memcpy(proto->data, data, length);
@@ -135,6 +127,54 @@ static void sendACK(void)
 {
     pccomDataSend(PCCOM_PROTO_CMD_ACK, NULL, 0);
 }
+
+void PCComDataReport(uint8_t *data, uint16_t len)
+{
+    pccomDataSend(PCCOM_PROTO_CMD_READ, data, len);
+}
+
+static void frameHandle(void)
+{
+    PCComProto_t *proto = (PCComProto_t *)g_recvBuff;
+    uint16_t interval;
+    uint32_t utc;
+
+    if(g_gotframe)
+    {
+        switch (proto->cmd)
+        {
+            case PCCOM_PROTO_CMD_TEST:
+                Syslog("PCCOM_PROTO_CMD_TEST");
+                sendACK();
+                break;
+            case PCCOM_PROTO_CMD_READ:
+                Syslog("PCCOM_PROTO_CMD_READ");
+                g_eventHandle(PCCOM_EVENT_DATA_REPORT, NULL);
+                break;
+            case PCCOM_PROTO_CMD_TIMING:
+                memcpy(&utc, proto->data, 4);
+                Syslog("PCCOM_PROTO_CMD_TIMING, value = %d", utc);
+                sendACK();
+                g_eventHandle(PCCOM_EVENT_TIMING, (void *)utc);
+                break;
+            case PCCOM_PROTO_CMD_INTERVAL:
+                memcpy(&interval, proto->data, 2);
+                Syslog("PCCOM_PROTO_CMD_INTERVAL, value = %d", interval);
+                sendACK();
+                g_eventHandle(PCCOM_EVENT_SLEEP_INTERVAL, (void *)(uint32_t)interval);
+                break;
+            case PCCOM_PROTO_CMD_REBOOT:
+                Syslog("PCCOM_PROTO_CMD_REBOOT");
+                sendACK();
+                g_eventHandle(PCCOM_EVENT_REBOOT, NULL);
+                break;
+            default:
+                break;
+        }
+        g_gotframe = false;
+    }
+}
+#if 0
 
 static void dataInsert(void)
 {
@@ -160,58 +200,18 @@ static void dataInsert(void)
     }
 }
 
-static void frameHandle(void)
-{
-    PCComProto_t *proto = (PCComProto_t *)g_recvBuff;
-    uint16_t interval;
-    uint32_t utc;
-
-    if(g_gotframe)
-    {
-        switch (proto->cmd)
-        {
-            case PCCOM_PROTO_CMD_TEST:
-                Syslog("PCCOM_PROTO_CMD_TEST");
-                sendACK();
-                break;
-            case PCCOM_PROTO_CMD_READ:
-                Syslog("PCCOM_PROTO_CMD_READ");
-                dataInsert();
-                g_startReportData = true;
-                break;
-            case PCCOM_PROTO_CMD_TIMING:
-                memcpy(&utc, proto->data, 4);
-                HalRTCSetUtc(utc);
-                Syslog("PCCOM_PROTO_CMD_TIMING, value = %d", utc);
-                sendACK();
-                break;
-            case PCCOM_PROTO_CMD_INTERVAL:
-                memcpy(&interval, proto->data, 2);
-                Syslog("PCCOM_PROTO_CMD_INTERVAL, value = %d", interval);
-                sendACK();
-                break;
-            case PCCOM_PROTO_CMD_REBOOT:
-                Syslog("PCCOM_PROTO_CMD_REBOOT");
-                sendACK();
-                break;
-            default:
-                break;
-        }
-        g_gotframe = false;
-    }
-}
 
 static void dataReport(void)
 {
     DeviceDataReport_t *dataHead;
     DeviceDataReport_t *node;
     uint16_t count, len;
-    uint8_t buff[255];
+    uint8_t buff[255 - sizeof(PCComProto_t) - 1];
     static uint8_t packetnum = 1;
     
     if(g_startReportData)
     {   
-        count = 2;
+        count = 2; //包序号 + 是否还有分包
         dataHead = DeviceDataGetHead();
         if(dataHead)
         {
@@ -253,7 +253,6 @@ static void dataReport(void)
         }
     }
 }
-
 static void testSend(void)
 {
     uint8_t data[5] = {1,2,3,4,5};
@@ -268,8 +267,9 @@ static void testSend(void)
         lastTime = SysTime();
     }
 }
+#endif
 
-void PCComInit(void)
+void PCComInit(PCComEventHandle_t eventHandle)
 {
     HalUartConfig_t config;
     config.enble = true;
@@ -279,6 +279,7 @@ void PCComInit(void)
     config.wordLength = USART_WordLength_8b;
     config.recvCb = pccomDataRecv;
     HalUartConfig(PCCOM_UART_PORT, &config);
+    g_eventHandle = eventHandle;
 
     //enable pin
     HalGPIOConfig(PCCOM_485DE_PIN, HAL_IO_OUTPUT);//pa12
@@ -289,6 +290,6 @@ void PCComInit(void)
 void PCComPoll(void)
 {   
     frameHandle();
-    dataReport();
+    //dataReport();
 }
 

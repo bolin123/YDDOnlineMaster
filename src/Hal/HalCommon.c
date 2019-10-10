@@ -92,8 +92,9 @@ static void periphClockInit(void)
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
-    
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE);
     //RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
@@ -109,7 +110,9 @@ void HalCommonReboot(void)
 
 static void halInit(void)
 {
-    HalGPIOConfig(HAL_IO_UART_PIN, HAL_IO_OUTPUT);    
+    HalGPIOConfig(HAL_IO_UART_PIN, HAL_IO_OUTPUT); 
+    HalGPIOConfig(HAL_LED1_PIN, HAL_IO_OUTPUT);
+    
     HalTimerStart();
     HalGPIOConfig(HAL_485_POWER_PIN, HAL_IO_OUTPUT);//pa12
     HalGPIOConfig(HAL_IR_POWER_PIN, HAL_IO_OUTPUT);//Pe3
@@ -125,7 +128,9 @@ uint16_t HalCommonInitialize(void)
     HalGPIOInitialize();
     HalUartInitialize();
     HalTimerInitialize();
+    HalExtiInitialize();
     HalSPIInitialize();
+    HalPWMInitialize();
     err = HalRTCInit();
     halInit();
     return err;

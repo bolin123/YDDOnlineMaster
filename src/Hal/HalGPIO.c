@@ -52,7 +52,7 @@ void HalGPIOSetLevel(uint8_t io, uint8_t level)
     {
         return; 
     }
-    GPIO_WriteBit(ioToPort(io), ioToPin(io), level);
+    GPIO_WriteBit(ioToPort(io), ioToPin(io), (BitAction)level);
 }
 
 void HalGPIOConfig(uint8_t io, HalGPIODirect_t dir)

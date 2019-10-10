@@ -5,70 +5,59 @@
 #define SYS_FIRMWARE_VERSION "1.0.0.1"
 #define SYS_POWER_ADC_NUM 10
 
-//static uint16_t g_power[SYS_POWER_ADC_NUM];
-//static uint16_t g_powerAverage = 0;
-static uint8_t g_errcode;
+typedef struct
+{
+    uint8_t commAddr;  //上位机通信地址
+    uint8_t rfChannel; //无线通道
+    uint16_t interval; //上报间隔,秒
+}SysConfigs_t;
 
-uint8_t SysErrorCode(void)
+static uint8_t g_errcode = 0;
+static SysConfigs_t g_sysConfigs;
+
+uint16_t SysReportIntervalGet(void)
+{
+    return g_sysConfigs.interval;
+}
+
+void SysReportIntervalSet(uint16_t interval)
+{
+    g_sysConfigs.interval = interval;
+    HalFlashWrite(HAL_DEVICE_ARGS_ADDR, (uint8_t *)&g_sysConfigs, sizeof(SysConfigs_t));
+}
+
+uint8_t SysErrcodeGet(void)
 {
     return g_errcode;
 }
 
-uint8_t SysGetComAddr(void)
+uint8_t SysCommAddressGet(void)
 {
-    return 0x01; // TODO: address read
+    return g_sysConfigs.commAddr;
 }
 
-/*
-uint8_t SysPowerPercent(void)
+void SysCommAddressSet(uint8_t addr)
 {
-    int16_t max = 3240, min = 2296; //电池电压：2.61v ~ 1.85v
-    int8_t percent = 0;
-
-    if(g_powerAverage > max)
-    {
-        return 100;
-    }
-    else if(g_powerAverage < min)
-    {
-        return 0;
-    }
-    else
-    {
-        percent = (int8_t)((g_powerAverage - min) * 100 / (max - min));
-    }
-    
-    return (uint8_t)percent;
-    //return 87;
+    g_sysConfigs.commAddr = addr;
+    HalFlashWrite(HAL_DEVICE_ARGS_ADDR, (uint8_t *)&g_sysConfigs, sizeof(SysConfigs_t));
 }
 
-static void powerValueUpdate(void)
+void SysRfChannelSet(uint8_t chn)
 {
-    static uint8_t powerNum = 0;
-    static uint32_t lastTime;
-    uint8_t i;
-    uint32_t valuecount = 0;
-
-    if(SysTimeHasPast(lastTime, 50))
-    {
-        g_power[powerNum++] = HalADCGetPowerValue();
-        if(powerNum >= SYS_POWER_ADC_NUM)
-        {
-            for(i = 0; i < powerNum; i++)
-            {
-                valuecount += g_power[i];
-            }
-            g_powerAverage = valuecount / powerNum;
-            powerNum = 0;
-        }
-        lastTime = SysTime();
-    }
+    g_sysConfigs.rfChannel = chn;
+    HalFlashWrite(HAL_DEVICE_ARGS_ADDR, (uint8_t *)&g_sysConfigs, sizeof(SysConfigs_t));
 }
-*/
+
+uint8_t SysRfChannelGet(void)
+{
+    return g_sysConfigs.rfChannel;
+}
+
 int SysDateTimeSet(SysDateTime_t *dateTime)
 {
     return HalRTCSetTime((HalRTCTime_t *)dateTime);
 }
+#if 0
 
 void SysArgsGetRecord(SysDataRecord_t *record)
 {
@@ -117,7 +106,7 @@ void SysArgsGetPointInfo(uint16_t id, SysDataInfo_t *info)
         HalFlashRead(addr, (uint8_t *)info, sizeof(SysDataInfo_t));
     }
 }
-#if 0
+
 void SysSignalThresholdSet(uint16_t value)
 {
     //soft step 50, from 50~300
@@ -129,7 +118,7 @@ void SysBeepEnable(bool enable)
 {
 //    HalBeepEnable(enable);
 }
-#endif
+
 void SysArgsClear(void)
 {
     SysDataRecord_t record;
@@ -186,47 +175,30 @@ void SysRawDataWrite(uint32_t addresss, uint8_t *buff, uint16_t length)
         W25Q64Write(buff, addresss, length);
     }
 }
-
-static uint8_t g_mac[SYS_MAC_ADDR_LEN];
-void SysMacAddrSet(uint8_t *mac)
-{
-    Syslog("");
-    for(int i = 0; i < SYS_MAC_ADDR_LEN; i++)
-    {
-        printf("%02x ", mac[i]);
-    }
-    printf("\n");
-    memcpy(g_mac, mac, SYS_MAC_ADDR_LEN);
-}
-
-uint8_t *SysMacAddrGet(void)
-{
-    return g_mac;
-}
+#endif
 
 static void startupInit(void)
 {
-    SysDataRecord_t record;
-    SysCollectArgs_t args;
-
-    SysArgsGetRecord(&record);
-    SysCollectArgsGet(&args);
-//    HalBeepEnable(args.beep);
-    //SysSignalThresholdSet(args.signalThreshold);
-
+    HalFlashRead(HAL_DEVICE_ARGS_ADDR, (uint8_t *)&g_sysConfigs, sizeof(SysConfigs_t));
+    if(g_sysConfigs.commAddr == 0xff)
+    {
+        g_sysConfigs.commAddr  = 0x01;
+        g_sysConfigs.rfChannel = 0x01;
+        g_sysConfigs.interval = 60; //1minute
+        HalFlashWrite(HAL_DEVICE_ARGS_ADDR, (uint8_t *)&g_sysConfigs, sizeof(SysConfigs_t));
+    }
     //log
     printf("\r\n-----------------------------------------------------------\r\n");
     printf("--Firmware version:%s\r\n", SYS_FIRMWARE_VERSION);
     printf("--Compile date:%s %s\r\n", __DATE__, __TIME__);
-    printf("--Data record: num = %d, size = %d\r\n", record.num, record.size);
-    printf("--XHFZ = %d, CSSJ = %d, QDBJ = %d, ZLBJ = %d\r\n", args.signalThreshold, args.runTime, 
-                                                                args.intensityAlarm, args.ringAlarm);
+    
+    printf("--Comm Address:%d\r\n", g_sysConfigs.commAddr);
+    printf("--Rf channel:%d\r\n", g_sysConfigs.rfChannel);
+    printf("--Report interval:%ds\r\n", g_sysConfigs.interval);
     SysDateTime_t *time = SysDateTime();
     printf("--Now: %d-%02d-%02d %02d:%02d:%02d\r\n", time->year, time->month, time->day, 
                                           time->hour, time->minute, time->second);
     printf("-----------------------------------------------------------\r\n");
-    
-//    HalBeepSet(100);
 }
 
 void SysReboot(void)
@@ -238,19 +210,16 @@ void SysReboot(void)
 void SysInitalize(void)
 {
     g_errcode = HalCommonInitialize();
-    //ProtocolInitialize();
     printf(".....Hardware init....\n");
     g_errcode |= W25Q64Initialize();
     printf("errcode = %d\r\n", g_errcode);
-    //YDDInitialize(errcode);
-    MasterInit();
     startupInit();
+    MasterInit();
 }
 
 void SysPoll(void)
 {
     HalCommonPoll();
-    W25Q64Poll();
     MasterPoll();
 }
 

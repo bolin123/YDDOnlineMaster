@@ -54,6 +54,8 @@ void HalUartInitialize(void)
 {
     NVIC_InitTypeDef NVIC_InitStructure;
 
+    memset(g_uartConfig, 0, sizeof(HalUartConfig_t) * HAL_UART_COUNT);
+
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
 #if 1
     NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
