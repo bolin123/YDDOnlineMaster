@@ -13,6 +13,7 @@
 //#include "HalDAC.h"
 #include "HalExti.h"
 #include "HalPWM.h"
+#include "HalWdg.h"
 
 //void HalCommonWakeup(void);
 //void HalCommonFallasleep(void);

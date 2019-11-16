@@ -4,11 +4,12 @@
 #include "VTList.h"
 #include "Sys.h"
 
-#define DEVICE_DATA_PACKET_LEN(dlen) (SYS_MAC_ADDR_LEN + 7 + (dlen))
+#define DEVICE_DATA_PACKET_LEN(dlen) (8 + (dlen))//(SYS_MAC_ADDR_LEN + 7 + (dlen))
 
 typedef struct DeviceDataReport_st
 {
-    char mac[SYS_MAC_ADDR_LEN];
+    //char mac[SYS_MAC_ADDR_LEN];
+    uint8_t addr;
     uint8_t devType;
     uint32_t utctime;
     uint8_t errcode;
@@ -18,7 +19,7 @@ typedef struct DeviceDataReport_st
     VTLIST_ENTRY(struct DeviceDataReport_st);
 }DeviceDataReport_t;
 
-void DeviceDataInsert(char *mac, uint8_t devType, uint8_t err, uint8_t power, uint16_t *data, uint16_t dnum);
+void DeviceDataInsert(uint8_t addr, uint8_t devType, uint8_t err, uint8_t power, uint16_t *data, uint16_t dnum);
 DeviceDataReport_t *DeviceDataGetHead(void);
 void DeviceDataInit(void);
 void DeviceDataPoll(void);

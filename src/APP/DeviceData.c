@@ -3,7 +3,7 @@
 static DeviceDataReport_t g_reportData;
 //static uint16_t g_dataCount = 0;
 
-void DeviceDataInsert(char *mac, uint8_t devType, uint8_t err, uint8_t power, uint16_t *data, uint16_t dnum)
+void DeviceDataInsert(uint8_t addr, uint8_t devType, uint8_t err, uint8_t power, uint16_t *data, uint16_t dnum)
 {
     bool update = false;
     DeviceDataReport_t *reportData= NULL;
@@ -11,7 +11,8 @@ void DeviceDataInsert(char *mac, uint8_t devType, uint8_t err, uint8_t power, ui
 
     VTListForeach(&g_reportData, node)
     {
-        if(memcmp(node->mac, mac, SYS_MAC_ADDR_LEN) == 0)
+        //if(memcmp(node->mac, mac, SYS_MAC_ADDR_LEN) == 0)
+        if(node->addr == addr)
         {
             reportData = node;
             update = true;
@@ -21,7 +22,7 @@ void DeviceDataInsert(char *mac, uint8_t devType, uint8_t err, uint8_t power, ui
 
     if(update) //¸üÐÂ
     {
-        printf("%s update\n", mac);
+        printf("%d update\n", addr);
         reportData->devType = devType;
         reportData->utctime = HalRTCGetUtc();
         reportData->errcode = err;
@@ -39,11 +40,12 @@ void DeviceDataInsert(char *mac, uint8_t devType, uint8_t err, uint8_t power, ui
     }
     else
     {
-        printf("%s insert\n", mac);
+        printf("%d insert\n", addr);
         reportData = (DeviceDataReport_t *)malloc(sizeof(DeviceDataReport_t));
         if(reportData)
         {
-            memcpy(reportData->mac, mac, SYS_MAC_ADDR_LEN);
+            //memcpy(reportData->mac, mac, SYS_MAC_ADDR_LEN);
+            reportData->addr = addr;
             reportData->devType = devType;
             reportData->utctime = HalRTCGetUtc();
             reportData->errcode = err;

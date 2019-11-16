@@ -2,11 +2,11 @@
 #include "Sys.h"
 #include "DeviceData.h"
 
-#define PCCOM_UART_PORT HAL_UART_PORT_2
+#define PCCOM_UART_PORT HAL_UART_PORT_4
 
 #define PCCOM_PROTO_HEAD1 'T'
 #define PCCOM_PROTO_HEAD2 'H'
-#define PCCOM_485DE_PIN 0x2a //0x0b //
+#define PCCOM_485DE_PIN 0x2c //pc12
 #define PCCOM_RECV_MODE() HalGPIOSetLevel(PCCOM_485DE_PIN, 0)
 #define PCCOM_SEND_MODE() HalGPIOSetLevel(PCCOM_485DE_PIN, 1)
 
@@ -120,6 +120,12 @@ static void pccomDataSend(PCComProtoCmd_t cmd, uint8_t *data, uint16_t length)
 
     bufflen = sizeof(PCComProto_t) + length + 1;
     HalUartWrite(PCCOM_UART_PORT, buff, bufflen);
+
+    for(uint8_t i = 0; i < bufflen; i++)
+    {
+        printf("%02x ", buff[i]);
+    }
+    printf("\n");
     PCCOM_RECV_MODE();
 }
 
@@ -148,8 +154,9 @@ static void frameHandle(void)
                 sendACK();
                 break;
             case PCCOM_PROTO_CMD_READ:
+                memcpy(&utc, proto->data, 4);
                 Syslog("PCCOM_PROTO_CMD_READ");
-                g_eventHandle(PCCOM_EVENT_DATA_REPORT, NULL);
+                g_eventHandle(PCCOM_EVENT_DATA_REPORT, (void *)utc);
                 break;
             case PCCOM_PROTO_CMD_TIMING:
                 memcpy(&utc, proto->data, 4);

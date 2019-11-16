@@ -1,5 +1,7 @@
 #include "YModem.h"
 
+#define YMODEM_UART_PORT
+
 #define YMODEM_FRAME_SOH 0x01 //128字节数据帧，协议类型
 #define YMODEM_FRAME_EOT 0x04 //结束传输，发送者发送
 #define YMODEM_FRAME_ACK 0x06 //接收者处理成功回应，发送者发现下一包数据
@@ -25,11 +27,12 @@ typedef struct
 }YModemFrame_t;
 
 static YModemEvent_cb g_ymodemEvent;
-static bool g_sendSync = false;
 static uint8_t g_dataBuff[sizeof(YModemFrame_t)];
 static uint8_t g_frameID = 0;
 static volatile bool g_gotframe = false;
 static YModemStatus_t g_status = YMODEM_STATUS_NONE;
+static int g_fwLength;
+static uint32_t g_activeTime;
 
 static uint16_t crc16(uint8_t *data, uint16_t len)
 {
@@ -60,11 +63,13 @@ static uint16_t crc16(uint8_t *data, uint16_t len)
 }
 
 
-static void modemDataSend(uint8_t *data, uint16_t len)
+static void modemCMDSend(uint8_t cmd)
 {
+    uint8_t data = cmd;
+    HalUartWrite(YMODEM_UART_PORT, (const uint8_t *)&data, 1);
 }
 
-static void modemDataRecv(uint8_t *data, uint16_t len)
+void YModemDataRecv(uint8_t *data, uint16_t len)
 {
     uint16_t i;
     YModemFrame_t *frame = (YModemFrame_t *)g_dataBuff;
@@ -88,6 +93,8 @@ static void modemDataRecv(uint8_t *data, uint16_t len)
             }
             if(data[i] == YMODEM_FRAME_EOT)
             {
+                g_frameID = 0;
+                g_status = YMODEM_STATUS_FINISH;
                 g_gotframe = true;
             }
         }
@@ -122,21 +129,49 @@ static void modemDataRecv(uint8_t *data, uint16_t len)
     }
 }
 
+static void ymodemACK(void)
+{
+    modemCMDSend(YMODEM_FRAME_ACK);
+}
+
 static void modemFrameParse(void)
 {
     YModemFrame_t *frame;
+    static uint32_t flashAddress;
+    char *info;
+    int dump1, dump2;
     if(g_gotframe)
     {
         frame = (YModemFrame_t *)g_dataBuff;
+        g_activeTime = SysTime();
         switch (g_status)
         {
         case YMODEM_STATUS_NONE:
+            
         break;
         case YMODEM_STATUS_START:
+            printf("name:%s, ", frame->data);
+            info = &frame->data[strlen(frame->data) + 1];
+            sscanf(info, "%d %d %d", &g_fwLength, dump1, dump2);
+            printf("length:%d\n", g_fwLength);
+            modemCMDSend(YMODEM_FRAME_ACK);
+            modemCMDSend(YMODEM_FRAME_C);
+            flashAddress = HAL_OTA_FLASH_ADDR;
+            g_status = YMODEM_STATUS_TRANSFER;
         break;
         case YMODEM_STATUS_TRANSFER:
+            HalFlashWrite(flashAddress, frame->data, 128);
+            flashAddress += 128;
+            modemCMDSend(YMODEM_FRAME_ACK);
         break;
         case YMODEM_STATUS_FINISH:
+            modemCMDSend(YMODEM_FRAME_ACK);
+            modemCMDSend(YMODEM_FRAME_C);
+            if(g_dataBuff[0] != YMODEM_FRAME_EOT)
+            {
+                //Event end
+                
+            }
         break;
         default:
         break;
@@ -150,16 +185,38 @@ static void syncPoll(void)
 {
     static uint32_t lastTime;
 
-    if(g_sendSync && SysTimeHasPast(lastTime, 500))
+    if(g_status == YMODEM_STATUS_START && SysTimeHasPast(lastTime, 500))
     {
-        modemDataSend('C', 1);
+        modemCMDSend(YMODEM_FRAME_C);
         lastTime = SysTime();
     }
 }
 
-void YModemStartSync(void)
+static void timeoutHandle(void)
 {
-    g_sendSync = true;
+    if(g_status != YMODEM_STATUS_NONE)
+    {
+        if(SysTimeHasPast(g_activeTime, 30000))
+        {
+            //time out
+        }
+    }
+}
+
+void YModemStart(void)
+{
+    g_status = YMODEM_STATUS_START;
+    g_activeTime = SysTime();
+}
+
+bool YModemIsStart(void)
+{
+    return g_status != YMODEM_STATUS_NONE;
+}
+
+void YModemStop(void)
+{
+    g_status = YMODEM_STATUS_NONE;
 }
 
 static void modemUartInit(void)
@@ -174,6 +231,8 @@ void YModemInit(YModemEvent_cb eventcb)
 
 void YModemPoll(void)
 {
+    modemFrameParse();
+    syncPoll();
 }
 
 

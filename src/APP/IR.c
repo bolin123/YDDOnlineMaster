@@ -13,7 +13,7 @@ typedef struct
 }IrRxData_t;
 #pragma pack()
 
-#define IR_TX_EN_PIN 0x45  //pe5
+#define IR_TX_EN_PIN 0x27  //pc7
 #define IR_TX_EN_ENABLE_LEVEL 
 
 static volatile uint32_t g_irTimerCount = 0;
@@ -95,7 +95,7 @@ void IRRecvBits(void)
         
         if(recvnum == 34)
         {
-            //printf("ir value:%04x\n", g_irValue);
+            printf("IR :%04x\n", irValue);
             g_irKey = getKeyValue(irValue);
             HalIRRecvTimerEnable(false);
         }
@@ -144,9 +144,9 @@ void IRSendData(uint8_t *data, uint8_t len)
     
 HalInterruptSet(false);
     HalPWMEnable(true);
-    HalGPIOSetLevel(IR_TX_EN_PIN, 1);
-    HalWaitMs(9);
     HalGPIOSetLevel(IR_TX_EN_PIN, 0);
+    HalWaitMs(9);
+    HalGPIOSetLevel(IR_TX_EN_PIN, 1);
     //HalPWMEnable(false);
     HalWaitUs(4500);
 
@@ -154,33 +154,35 @@ HalInterruptSet(false);
     {
         for(i = 0; i < 8; i++)
         {
-            if(data[j] & (0x01 << i))
+            if(data[j] & (0x80 >> i))
             {
-                HalGPIOSetLevel(IR_TX_EN_PIN, 1);
+                HalGPIOSetLevel(IR_TX_EN_PIN, 0);
                 //HalPWMEnable(true);
                 HalWaitUs(560);
                 
-                HalGPIOSetLevel(IR_TX_EN_PIN, 0);
+                HalGPIOSetLevel(IR_TX_EN_PIN, 1);
                 //HalPWMEnable(false);
                 HalWaitUs(1690);
             }
             else
             {
-                HalGPIOSetLevel(IR_TX_EN_PIN, 1);
+                HalGPIOSetLevel(IR_TX_EN_PIN, 0);
                 //HalPWMEnable(true);
                 HalWaitUs(560);
                 
-                HalGPIOSetLevel(IR_TX_EN_PIN, 0);
+                HalGPIOSetLevel(IR_TX_EN_PIN, 1);
                 //HalPWMEnable(false);
                 HalWaitUs(560);
             }
         }
     }
-    
+    HalGPIOSetLevel(IR_TX_EN_PIN, 0);
+    HalWaitUs(560);
 HalInterruptSet(true);
     HalPWMEnable(false);
     //HalGPIOSetLevel(IR_TX_EN_PIN, 0);
 }
+
 
 void IRInit(IRKeyHandle_t handle)
 {

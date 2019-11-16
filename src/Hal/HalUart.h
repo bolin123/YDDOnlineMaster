@@ -8,6 +8,7 @@ typedef enum
     HAL_UART_PORT_1 = 0,
     HAL_UART_PORT_2 = 1,
     HAL_UART_PORT_3 = 2,
+    HAL_UART_PORT_4 = 3,
     HAL_UART_COUNT,
 }HalUartPort_t;
 

@@ -38,8 +38,9 @@ static void pcDataReport(void)
             }
             else
             {
-                memcpy(&reportData->data[dlen], node->mac, SYS_MAC_ADDR_LEN);//mac
-                dlen += SYS_MAC_ADDR_LEN;
+                //memcpy(&reportData->data[dlen], node->mac, SYS_MAC_ADDR_LEN);//mac
+                //dlen += SYS_MAC_ADDR_LEN;
+                reportData->data[dlen++] = node->addr;
                 reportData->data[dlen++] = node->devType;
                 reportData->data[dlen++] = node->errcode;
                 reportData->data[dlen++] = node->power;
@@ -74,6 +75,10 @@ static void pcEventHandle(PCComEvent_t event, void *args)
     switch(event)
     {
         case PCCOM_EVENT_DATA_REPORT:
+            if(((uint32_t)args - HalRTCGetUtc()) > 300)
+            {
+                HalRTCSetUtc((uint32_t)args);
+            }
             pcDataReport();
             break;
         case PCCOM_EVENT_TIMING:

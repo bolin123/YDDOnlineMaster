@@ -61,7 +61,7 @@ static void wiredDataRecv(uint8_t *data, uint16_t len)
 
 static void framePrase(WiredProtoContext_t *context)
 {
-    char mac[4] = "";
+//    char mac[4] = "";
     uint16_t data[8];
     uint16_t dlen;
     
@@ -72,10 +72,10 @@ static void framePrase(WiredProtoContext_t *context)
         {
             reportData = (WiredProtoReportData_t *)context->data;
 
-            sprintf(mac, "%03d", reportData->address);
+            //sprintf(mac, "%03d", reportData->address);
             dlen = context->dlen - sizeof(WiredProtoReportData_t);
             memcpy(data, reportData->data, dlen);
-            DeviceDataInsert(mac, reportData->devType, reportData->errcode, reportData->power, data, dlen / 2);
+            DeviceDataInsert(reportData->address, reportData->devType, reportData->errcode, reportData->power, data, dlen / 2);
         }
     }
 }

@@ -2,6 +2,7 @@
 #include "Wireless.h"
 #include "VTList.h"
 #include "VTStaticQueue.h"
+#include "HalRfUart.h"
 
 #define RFMODULE_UART_PORT HAL_UART_PORT_3 //uart3
 #define RFMODULE_REPLY_TIMEOUT 300
@@ -62,12 +63,37 @@ static const char *g_chnlist[HAL_RF_CHANNEL_NUM] = {
 static bool g_rfModuleDetected = false;
 static uint8_t g_rfRecvBuff[256];
 static uint16_t g_rfBuffCount = 0;
-static VTSQueueDef(uint8_t, g_uartBuff, 512);
+static VTSQueueDef(uint8_t, g_uartBuff, HAL_RF_UART_BUFF_LEN);
 static RFModuleSendList_t g_rfmoduleList;
 static RFModuleEvent_cb g_rfModuleEventHandle;
 
+static uint8_t crc8Check(uint8_t *data, uint16_t len)
+{
+    uint8_t i;
+    uint8_t value;
+    
+    value = 0;
+    while(len--)
+    {
+        value ^= *data++;
+        for(i = 0; i < 8; i++)
+        {
+            if(value & 0x01)
+            {
+                value = (value >> 1) ^ 0x8C;
+            }
+            else 
+            {
+                value >>= 1;
+            }
+        }
+    }
+    return value;
+}
+/*
 static void dataRecvByte(uint8_t byte)
 {   
+    uint8_t crc;
     if(g_rfBuffCount == 1)
     {
         if(byte != '~')
@@ -85,12 +111,21 @@ static void dataRecvByte(uint8_t byte)
         if(byte == '\r')
         {
             g_rfRecvBuff[g_rfBuffCount] = '\0';
-            WirelessDataParse((char *)g_rfRecvBuff);
+            crc = strtol((char *)&g_rfRecvBuff[g_rfBuffCount - 3], NULL, 16);
+            if(crc == crc8Check(g_rfRecvBuff, g_rfBuffCount - 3))
+            {
+                WirelessDataParse((char *)g_rfRecvBuff);
+            }
+            else
+            {
+                printf("crc8 check error, %02x", crc);
+            }
             g_rfBuffCount = 0;
         }
 
     }
 }
+*/
 
 static int sendlistInsert(char *data, RFModuleCmd_t cmd)
 {
@@ -140,7 +175,7 @@ static void rfSendlistHandle(void)
             if(rfsend->retries < RFMODULE_RETRY_MAX_NUM)
             {
                 printf("cmd = %d, %s\n", rfsend->cmd, rfsend->data);
-                HalUartWrite(RFMODULE_UART_PORT, (const uint8_t *)rfsend->data, strlen(rfsend->data));
+                HaRflUartWrite((const uint8_t *)rfsend->data, strlen(rfsend->data));
                 rfsend->retries++;
                 rfsend->lastTime = SysTime();
             }
@@ -207,7 +242,7 @@ static void atcmdParse(char *atcmd)
         //ignore
     }
 }
-
+/*
 static void atcmdRecvByte(uint8_t byte)
 {
     if(g_rfBuffCount == 1)
@@ -239,7 +274,6 @@ static void atcmdRecvByte(uint8_t byte)
         }
     }
 }
-
 static void uartDataRecv(uint8_t *data, uint16_t len)
 {
     uint16_t i;
@@ -251,13 +285,15 @@ static void uartDataRecv(uint8_t *data, uint16_t len)
         }
     }
 }
+*/
 
 static void frameParsePoll(void)
 {
 //    uint8_t i;
     uint8_t data;
+    uint8_t crc;
     static uint32_t recvTime;
-    static bool atcmdRecved = false;
+    static bool atcmdFlag = false;
     
     while(VTSQueueCount(g_uartBuff))
     {
@@ -272,7 +308,53 @@ static void frameParsePoll(void)
         recvTime = SysTime();
 
         g_rfRecvBuff[g_rfBuffCount++] = data;
-
+        if(g_rfBuffCount == 1)
+        {
+            if(data == '~')
+            {
+                atcmdFlag = false;
+            }
+            else if(data == 'A')
+            {
+                atcmdFlag = true;
+            }
+            else
+            {
+                g_rfBuffCount = 0;
+            }
+        }
+        else
+        {
+            if(g_rfBuffCount >= sizeof(g_rfRecvBuff))
+            {
+                g_rfBuffCount = 0;
+            }
+            
+            if(data == '\r')
+            {
+                g_rfRecvBuff[g_rfBuffCount] = '\0';
+                if(atcmdFlag) //AT cmd
+                {
+                    atcmdParse((char *)g_rfRecvBuff);
+                }
+                else  //Data recv
+                {
+                    crc = strtol((char *)&g_rfRecvBuff[g_rfBuffCount - 3], NULL, 16);
+                    if(crc == crc8Check(g_rfRecvBuff, g_rfBuffCount - 3))
+                    {
+                        WirelessDataParse((char *)g_rfRecvBuff);
+                    }
+                    else
+                    {
+                        printf("crc8 check error, %02x", crc);
+                    }
+                }
+                atcmdFlag = false;
+                g_rfBuffCount = 0;
+            }
+        }
+        
+#if 0
         if(g_rfBuffCount == 1)
         {
             if(data == '~')
@@ -293,6 +375,7 @@ static void frameParsePoll(void)
         {
             dataRecvByte(data);
         }
+#endif
     }
 }
 
@@ -349,7 +432,7 @@ void RFModuleSendData(uint8_t *data, uint16_t len)
     if(g_rfModuleDetected)
     {
         Syslog("%s", data);
-        HalUartWrite(RFMODULE_UART_PORT, (const unsigned char *)data, len);
+        HaRflUartWrite((const unsigned char *)data, len);
     }
 }
 
@@ -358,8 +441,14 @@ bool RFModuleDetected(void)
     return g_rfModuleDetected;
 }
 
+static void rfDataRecvHandle(uint16_t length)
+{
+    g_uartBuff.count += length;
+}
+
 static void uartInit(void)
 {
+    /*
     HalUartConfig_t config;
 
     config.enble = true;
@@ -369,18 +458,21 @@ static void uartInit(void)
     config.wordLength = USART_WordLength_8b;
     config.recvCb = uartDataRecv;
     HalUartConfig(RFMODULE_UART_PORT, &config);
+    */
+    HalRfUartInit(115200, g_uartBuff.items, rfDataRecvHandle);
 }
 
 void RFModuleInit(RFModuleEvent_cb eventcb)
 {   
     uint8_t dump = 0xff;
     uartInit();
-    HalUartWrite(RFMODULE_UART_PORT, (const uint8_t *)&dump, 1);
+    HaRflUartWrite((const uint8_t *)&dump, 1);
     g_rfModuleEventHandle = eventcb;
 }
 
 void RFModulePoll(void)
 {
+    HalRfUartPoll();
     rfSendlistHandle();
     frameParsePoll();
 }

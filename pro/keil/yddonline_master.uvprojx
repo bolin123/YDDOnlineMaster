@@ -133,12 +133,12 @@
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
-            <Capability>0</Capability>
-            <DriverSelection>-1</DriverSelection>
+            <Capability>1</Capability>
+            <DriverSelection>4096</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -411,6 +411,36 @@
               <FileType>1</FileType>
               <FilePath>..\..\src\APP\DeviceData.c</FilePath>
             </File>
+            <File>
+              <FileName>Wireless.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\APP\Wireless.c</FilePath>
+            </File>
+            <File>
+              <FileName>RFModule.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\APP\RFModule.c</FilePath>
+            </File>
+            <File>
+              <FileName>DispLoop.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\APP\DispLoop.c</FilePath>
+            </File>
+            <File>
+              <FileName>IR.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\APP\IR.c</FilePath>
+            </File>
+            <File>
+              <FileName>Menu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\APP\Menu.c</FilePath>
+            </File>
+            <File>
+              <FileName>WiredProto.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\APP\WiredProto.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -466,6 +496,26 @@
               <FileType>1</FileType>
               <FilePath>..\..\src\Hal\HalWait.c</FilePath>
             </File>
+            <File>
+              <FileName>HalExti.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\Hal\HalExti.c</FilePath>
+            </File>
+            <File>
+              <FileName>HalPWM.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\Hal\HalPWM.c</FilePath>
+            </File>
+            <File>
+              <FileName>HalWdg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\Hal\HalWdg.c</FilePath>
+            </File>
+            <File>
+              <FileName>HalRfUart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\Hal\HalRfUart.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -499,6 +549,12 @@
           <targetInfo name="master"/>
         </targetInfos>
       </component>
+      <component Cclass="Device" Cgroup="StdPeriph Drivers" Csub="DMA" Cvendor="Keil" Cversion="3.5.0" condition="STM32F1xx STDPERIPH RCC">
+        <package name="STM32F1xx_DFP" schemaVersion="1.4.0" url="http://www.keil.com/pack/" vendor="Keil" version="2.3.0"/>
+        <targetInfos>
+          <targetInfo name="master"/>
+        </targetInfos>
+      </component>
       <component Cclass="Device" Cgroup="StdPeriph Drivers" Csub="EXTI" Cvendor="Keil" Cversion="3.5.0" condition="STM32F1xx STDPERIPH">
         <package name="STM32F1xx_DFP" schemaVersion="1.4.0" url="http://www.keil.com/pack/" vendor="Keil" version="2.3.0"/>
         <targetInfos>
@@ -518,6 +574,12 @@
         </targetInfos>
       </component>
       <component Cclass="Device" Cgroup="StdPeriph Drivers" Csub="GPIO" Cvendor="Keil" Cversion="3.5.0" condition="STM32F1xx STDPERIPH RCC">
+        <package name="STM32F1xx_DFP" schemaVersion="1.4.0" url="http://www.keil.com/pack/" vendor="Keil" version="2.3.0"/>
+        <targetInfos>
+          <targetInfo name="master"/>
+        </targetInfos>
+      </component>
+      <component Cclass="Device" Cgroup="StdPeriph Drivers" Csub="IWDG" Cvendor="Keil" Cversion="3.5.0" condition="STM32F1xx STDPERIPH">
         <package name="STM32F1xx_DFP" schemaVersion="1.4.0" url="http://www.keil.com/pack/" vendor="Keil" version="2.3.0"/>
         <targetInfos>
           <targetInfo name="master"/>

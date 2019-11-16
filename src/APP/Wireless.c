@@ -19,7 +19,8 @@ typedef enum
 typedef struct
 {
     char preamble;
-    char mac[SYS_MAC_ADDR_LEN];
+    char mac[3];
+    //uint8_t addr;
     char cmd[2];
     char length[4];
     char data[];
@@ -47,6 +48,7 @@ void WirelessDataParse(char *data)
     WirelessReport_t *report;
     uint16_t length;
     uint16_t devData[16];
+    char addr[4] = {0};
     
     Syslog("%s", data);
     length = string2num(head->length, sizeof(head->length));
@@ -66,8 +68,8 @@ void WirelessDataParse(char *data)
             printf("%d ", devData[i]);
         }
         printf("\n");
-
-        DeviceDataInsert(head->mac, devtype, errcode, power, devData, dataNum);
+        memcpy(addr, head->mac, 3);
+        DeviceDataInsert((uint8_t)strtol(addr, NULL, 10), devtype, errcode, power, devData, dataNum);
     }
 }
 
