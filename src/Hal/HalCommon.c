@@ -113,13 +113,13 @@ void HalCommonReboot(void)
 static void halInit(void)
 {
     HalGPIOConfig(HAL_IO_UART_PIN, HAL_IO_OUTPUT); 
-    HalGPIOConfig(HAL_LED1_PIN, HAL_IO_OUTPUT);
+    HalGPIOConfig(HAL_STATUS_LED_PIN, HAL_IO_OUTPUT);
     
     HalTimerStart();
     HalGPIOConfig(HAL_485_POWER_PIN, HAL_IO_OUTPUT);//pa12
-    HalGPIOConfig(HAL_IR_POWER_PIN, HAL_IO_OUTPUT);//Pe3
-    HalGPIOSetLevel(HAL_485_POWER_PIN,     0);
-    HalGPIOSetLevel(HAL_IR_POWER_PIN,      0);
+    HalGPIOConfig(HAL_IR_POWER_PIN,  HAL_IO_OUTPUT);//Pe3
+    HalGPIOSetLevel(HAL_485_POWER_PIN, HAL_485_POWER_ENABLE_LEVEL);
+    HalGPIOSetLevel(HAL_IR_POWER_PIN,  HAL_IR_POWER_ENABLE_LEVEL);
 }
 
 uint16_t HalCommonInitialize(void)

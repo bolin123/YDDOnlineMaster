@@ -20,7 +20,6 @@ typedef struct
 {
     char preamble;
     char mac[3];
-    //uint8_t addr;
     char cmd[2];
     char length[4];
     char data[];

@@ -1,7 +1,7 @@
 #include "DeviceData.h"
 
 static DeviceDataReport_t g_reportData;
-//static uint16_t g_dataCount = 0;
+//static DeviceDataReport_t g_recordData;
 
 void DeviceDataInsert(uint8_t addr, uint8_t devType, uint8_t err, uint8_t power, uint16_t *data, uint16_t dnum)
 {

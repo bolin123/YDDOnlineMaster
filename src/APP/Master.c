@@ -8,6 +8,7 @@
 #include "WiredProto.h"
 #include "Menu.h"
 #include "DeviceData.h"
+#include "DataManager.h"
 
 typedef struct
 {
@@ -15,6 +16,23 @@ typedef struct
     uint8_t remain;
     uint8_t data[];
 }PCReportData_t;
+
+static uint32_t g_dataReportTime = 0;
+
+static uint8_t deviceDataToBuff(DeviceDataReport_t *devData, uint8_t *buff)
+{
+    uint8_t i = 0;
+
+    buff[i++] = devData->addr;
+    buff[i++] = devData->devType;
+    buff[i++] = devData->errcode;
+    buff[i++] = devData->power;
+    memcpy(&buff[i], &devData->utctime, 4);
+    i += 4;
+    memcpy(&buff[i], devData->data, devData->dataNum * 2);
+    i += devData->dataNum * 2;
+    return i;
+}
 
 static void pcDataReport(void)
 {
@@ -35,11 +53,12 @@ static void pcDataReport(void)
                 reportData->remain = 1;
                 PCComDataReport(buff, dlen + sizeof(PCReportData_t));
                 dlen = 0;
+                HalWdgFeed();
             }
             else
             {
-                //memcpy(&reportData->data[dlen], node->mac, SYS_MAC_ADDR_LEN);//mac
-                //dlen += SYS_MAC_ADDR_LEN;
+                dlen += deviceDataToBuff(node, &reportData->data[dlen]);
+            #if 0
                 reportData->data[dlen++] = node->addr;
                 reportData->data[dlen++] = node->devType;
                 reportData->data[dlen++] = node->errcode;
@@ -48,6 +67,7 @@ static void pcDataReport(void)
                 dlen += 4;
                 memcpy(&reportData->data[dlen], node->data, node->dataNum * 2);
                 dlen += node->dataNum * 2;
+            #endif
                 VTListDel(node);
                 free(node->data);
                 free(node);
@@ -58,15 +78,53 @@ static void pcDataReport(void)
         {
             reportData->packId = packetnum++;
             reportData->remain = 0;
+            if(DataManagerGetStoragedLength())
+            {
+                reportData->remain = 0x80;
+            }
             PCComDataReport(buff, dlen + sizeof(PCReportData_t));
             dlen = 0;
         }
 
-        
     }
     else
     {
-        PCComDataReport(NULL, 0);
+        reportData->packId = packetnum++;
+        reportData->remain = 0;
+        if(DataManagerGetStoragedLength())
+        {
+            reportData->remain = 0x80;
+        }
+        PCComDataReport(buff, sizeof(PCReportData_t));
+    }
+}
+
+static void historyReport(void)
+{
+    uint8_t buff[255 - sizeof(PCComProto_t) - 1] = {0};
+    uint8_t maxPacketlen, packetlen;
+    uint32_t lastLength = DataManagerGetStoragedLength();
+    
+    if(lastLength)
+    {
+        packetlen = sizeof(buff) - 4;
+        maxPacketlen = packetlen - (packetlen % HAL_DEVICE_DATA_PACKET_LENGTH);
+        if(lastLength > maxPacketlen)
+        {
+            lastLength -= maxPacketlen;
+            memcpy(buff, &lastLength, 4);
+            DataManagerLoad(buff + 4, maxPacketlen);
+            PCComHistoryDataReport(buff, maxPacketlen + 4);
+        }
+        else
+        {
+            DataManagerLoad(buff + 4, lastLength);
+            PCComHistoryDataReport(buff, lastLength + 4);
+        }
+    }
+    else
+    {
+        PCComHistoryDataReport(buff, 4);
     }
 }
 
@@ -80,6 +138,7 @@ static void pcEventHandle(PCComEvent_t event, void *args)
                 HalRTCSetUtc((uint32_t)args);
             }
             pcDataReport();
+            g_dataReportTime = SysTime();
             break;
         case PCCOM_EVENT_TIMING:
             HalRTCSetUtc((uint32_t)args);
@@ -91,6 +150,56 @@ static void pcEventHandle(PCComEvent_t event, void *args)
         case PCCOM_EVENT_REBOOT:
             SysReboot();
             break;
+        case PCCOM_EVENT_HISTORY_REPORT:
+            historyReport();
+            break;
+        default:
+            break;
+    }
+}
+
+static void deviceDataStoragePoll(void)
+{
+    uint8_t *buff = NULL;
+    uint16_t bufflen = 0;
+    uint16_t buffoffset = 0;
+    DeviceDataReport_t *lastRecord, *node;
+
+    if(SysTimeHasPast(g_dataReportTime, SysReportIntervalGet() * 1000 * 3)) //3倍时间未收到查询消息，则设备状态为未连接，开始存储数据
+    {
+        lastRecord = VTListLast(DeviceDataGetHead());
+        if(lastRecord  && (HalRTCGetUtc() - lastRecord->utctime) > 5) //最后一个包超过5秒等数据稳定后再存储，，减少存储次数，延长e2prom使用寿命
+        {
+            VTListForeach(DeviceDataGetHead(), node)
+            {
+                if(bufflen == 0)
+                {
+                    bufflen = DEVICE_DATA_PACKET_LEN(node->dataNum * 2);
+                    buff = (uint8_t *)malloc(bufflen);
+                }
+                else
+                {
+                    bufflen += DEVICE_DATA_PACKET_LEN(node->dataNum * 2);
+                    buff = realloc(buff, bufflen);
+                }
+                
+                if(buff)
+                {
+                    deviceDataToBuff(node, buff + buffoffset);
+                    buffoffset = bufflen;
+                }
+                //释放历史数据
+                VTListDel(node);
+                if(node->data)
+                {
+                    free(node->data);
+                }
+                free(node);
+            }
+            DataManagerStorage(buff, bufflen);
+            free(buff);
+            bufflen = 0;
+        }
     }
 }
 
@@ -278,7 +387,7 @@ static void ledBlinkPoll(void)
     if(SysTimeHasPast(oldTime, 500))
     {
         level = !level;
-        HalGPIOSetLevel(HAL_LED1_PIN, level);
+        HalGPIOSetLevel(HAL_STATUS_LED_PIN, level);
         oldTime = SysTime();
     }
 }
@@ -289,6 +398,7 @@ void MasterInit(void)
     WirelessInit();
     WiredProtoInit();
     IRInit(irKeyEventHandle);
+    DataManagerInit();
     displayConfig();
     //WirelessSetChannel(SysRfChannelGet());
     //WirelessSetInterval(SysReportIntervalGet());
@@ -305,5 +415,7 @@ void MasterPoll(void)
     MenuPoll();
     ledBlinkPoll();
     DispLoopPoll();
+    DataManagerPoll();
+    deviceDataStoragePoll();
 }
 

@@ -2,7 +2,7 @@
 #include "Sys.h"
 //#include "PowerManager.h"
 
-#define IR_DATA_FACTORY_CODE 0x80bf
+#define IR_DATA_FACTORY_CODE 0x00fd //0x80bf
 
 #pragma pack(1)
 typedef struct
@@ -109,25 +109,25 @@ static void irKeyHandle(void)
     {
         switch (g_irKey)
         {
-        case 0x6b://menu
+        case 0x30://menu 0x6b
             value = IR_KEY_MENU;
             break;
-        case 0x53://up
+        case 0x88://up 0x53
             value = IR_KEY_UP;
             break;
-        case 0x4b://down
+        case 0x98://down 0x4b
             value = IR_KEY_DOWN;
             break;
-        case 0x99://left
+        case 0x28://left 0x99
             value = IR_KEY_LEFT;
             break;
-        case 0x83://right
+        case 0x68://right 0x83
             value = IR_KEY_RIGHT;
             break;
-        case 0x73://enter
+        case 0xa8://enter 0x73
             value = IR_KEY_ENTER;
-            break;
-        case 0xa3://cancel
+            break; 
+        case 0x70://cancel 0xa3
             value = IR_KEY_CANCEL;
             break;
         default:

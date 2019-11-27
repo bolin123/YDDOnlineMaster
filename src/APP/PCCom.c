@@ -18,6 +18,7 @@ typedef enum
     PCCOM_PROTO_CMD_TIMING,
     PCCOM_PROTO_CMD_INTERVAL,
     PCCOM_PROTO_CMD_REBOOT,
+    PCCOM_PROTO_CMD_HISTORY,
 }PCComProtoCmd_t;
 
 static uint8_t g_recvBuff[128];
@@ -139,11 +140,18 @@ void PCComDataReport(uint8_t *data, uint16_t len)
     pccomDataSend(PCCOM_PROTO_CMD_READ, data, len);
 }
 
+void PCComHistoryDataReport(uint8_t *data, uint16_t len)
+{
+    pccomDataSend(PCCOM_PROTO_CMD_HISTORY, data, len);
+}
+
 static void frameHandle(void)
 {
     PCComProto_t *proto = (PCComProto_t *)g_recvBuff;
     uint16_t interval;
     uint32_t utc;
+//    uint8_t buff[140];
+//    uint32_t len;
 
     if(g_gotframe)
     {
@@ -175,106 +183,17 @@ static void frameHandle(void)
                 sendACK();
                 g_eventHandle(PCCOM_EVENT_REBOOT, NULL);
                 break;
+            case PCCOM_PROTO_CMD_HISTORY:
+                Syslog("PCCOM_PROTO_CMD_HISTORY");
+                g_eventHandle(PCCOM_EVENT_HISTORY_REPORT, NULL);
+                break;
             default:
                 break;
         }
         g_gotframe = false;
     }
 }
-#if 0
 
-static void dataInsert(void)
-{
-    uint8_t i;
-    uint16_t macnum = 1;
-    char mac[SYS_MAC_ADDR_LEN + 1] ="";
-    uint8_t devType;
-    uint16_t data1[4] = {100, 50, 200, 50};
-    uint16_t data2[2] = {125, 105};
-
-    for(i = 0; i < 20; i++)
-    {
-        mac[0] = '\0';
-        sprintf(mac, "%03d", macnum++);
-        if(i % 2)
-        {
-            DeviceDataInsert(mac, 2, i / 10, 98, data1, 4);
-        }
-        else
-        {
-            DeviceDataInsert(mac, 1, i / 10, 98, data2, 2);
-        }
-    }
-}
-
-
-static void dataReport(void)
-{
-    DeviceDataReport_t *dataHead;
-    DeviceDataReport_t *node;
-    uint16_t count, len;
-    uint8_t buff[255 - sizeof(PCComProto_t) - 1];
-    static uint8_t packetnum = 1;
-    
-    if(g_startReportData)
-    {   
-        count = 2; //包序号 + 是否还有分包
-        dataHead = DeviceDataGetHead();
-        if(dataHead)
-        {
-            VTListForeach(dataHead, node)
-            {
-                if(DEVICE_DATA_PACKET_LEN(node->dataNum * 2) + count > sizeof(buff))
-                {   
-                    buff[0] = packetnum++;
-                    buff[1] = 1;
-                    pccomDataSend(PCCOM_PROTO_CMD_READ, buff, count);
-                    count = 2;
-                    break;
-                }
-                else
-                {
-                    memcpy(&buff[count], node->mac, SYS_MAC_ADDR_LEN);//mac
-                    count += SYS_MAC_ADDR_LEN;
-                    buff[count++] = node->devType;
-                    buff[count++] = node->errcode;
-                    buff[count++] = node->power;
-                    memcpy(&buff[count], &node->utctime, 4);
-                    count += 4;
-                    memcpy(&buff[count], node->data, node->dataNum * 2);
-                    count += node->dataNum * 2;
-                    VTListDel(node);
-                    free(node->data);
-                    free(node);
-                }
-            }
-
-            if(count > 2)
-            {
-                buff[0] = packetnum++;
-                buff[1] = 0;
-                pccomDataSend(PCCOM_PROTO_CMD_READ, buff, count);
-                packetnum = 0;
-                g_startReportData = false;
-            }
-        }
-    }
-}
-static void testSend(void)
-{
-    uint8_t data[5] = {1,2,3,4,5};
-    static uint32_t lastTime;
-
-    if(SysTimeHasPast(lastTime, 1000))
-    {
-        PCCOM_SEND_MODE();
-        HalUartWrite(PCCOM_UART_PORT, data, sizeof(data));
-        //HalWaitMs(10);
-        PCCOM_RECV_MODE();
-        lastTime = SysTime();
-    }
-}
-#endif
 
 void PCComInit(PCComEventHandle_t eventHandle)
 {
@@ -297,6 +216,5 @@ void PCComInit(PCComEventHandle_t eventHandle)
 void PCComPoll(void)
 {   
     frameHandle();
-    //dataReport();
 }
 
