@@ -3,6 +3,7 @@
 #define YMODEM_UART_PORT
 
 #define YMODEM_FRAME_SOH 0x01 //128字节数据帧，协议类型
+#define YMODEM_FRAME_STX 0x02 //1024字节数据帧，协议类型
 #define YMODEM_FRAME_EOT 0x04 //结束传输，发送者发送
 #define YMODEM_FRAME_ACK 0x06 //接收者处理成功回应，发送者发现下一包数据
 #define YMODEM_FRAME_NAK 0x15 //接收者处理失败回应，发送者需要重发
@@ -26,7 +27,8 @@ typedef struct
     uint8_t crc16[2];
 }YModemFrame_t;
 
-static YModemEvent_cb g_ymodemEvent;
+static YModemEvent_cb g_ymodemEvent = NULL;
+static YModemSendData_cb g_sendDataCb = NULL;
 static uint8_t g_dataBuff[sizeof(YModemFrame_t)];
 static uint8_t g_frameID = 0;
 static volatile bool g_gotframe = false;
@@ -66,7 +68,11 @@ static uint16_t crc16(uint8_t *data, uint16_t len)
 static void modemCMDSend(uint8_t cmd)
 {
     uint8_t data = cmd;
-    HalUartWrite(YMODEM_UART_PORT, (const uint8_t *)&data, 1);
+    //HalUartWrite(YMODEM_UART_PORT, (const uint8_t *)&data, 1);
+    if(g_sendDataCb)
+    {
+        g_sendDataCb((const uint8_t *)&data, 1);
+    }
 }
 
 void YModemDataRecv(uint8_t *data, uint16_t len)
@@ -91,6 +97,7 @@ void YModemDataRecv(uint8_t *data, uint16_t len)
             {
                 buffcount = 0;
             }
+            
             if(data[i] == YMODEM_FRAME_EOT)
             {
                 g_frameID = 0;
@@ -137,7 +144,7 @@ static void ymodemACK(void)
 static void modemFrameParse(void)
 {
     YModemFrame_t *frame;
-    static uint32_t flashAddress;
+    static uint32_t flashAddress = 0;
     char *info;
     int dump1, dump2;
     if(g_gotframe)
@@ -160,11 +167,13 @@ static void modemFrameParse(void)
             g_status = YMODEM_STATUS_TRANSFER;
         break;
         case YMODEM_STATUS_TRANSFER:
-            HalFlashWrite(flashAddress, frame->data, 128);
+            printf("pack %d\n", frame->frameID);
+            //HalFlashWrite(flashAddress, frame->data, 128);
             flashAddress += 128;
             modemCMDSend(YMODEM_FRAME_ACK);
         break;
         case YMODEM_STATUS_FINISH:
+            printf("finish\n");
             modemCMDSend(YMODEM_FRAME_ACK);
             modemCMDSend(YMODEM_FRAME_C);
             if(g_dataBuff[0] != YMODEM_FRAME_EOT)
@@ -219,14 +228,10 @@ void YModemStop(void)
     g_status = YMODEM_STATUS_NONE;
 }
 
-static void modemUartInit(void)
-{
-}
-
-void YModemInit(YModemEvent_cb eventcb)
+void YModemInit(YModemSendData_cb sendCb, YModemEvent_cb eventcb)
 {
     g_ymodemEvent = eventcb;
-    modemUartInit();
+    g_sendDataCb = sendCb;
 }
 
 void YModemPoll(void)

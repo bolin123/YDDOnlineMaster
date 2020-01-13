@@ -25,6 +25,7 @@ typedef enum
     HAL_DEVICE_TYPE_MASTER = 0, //主机
     HAL_DEVICE_TYPE_PRESS,      //应力
     HAL_DEVICE_TYPE_GEO,        //地音地磁
+    HAL_DEVICE_TYPE_TESTCASE,   //测试设备（应力+电磁地音）
 }HalDeviceType_t;
 
 
@@ -55,6 +56,8 @@ typedef enum
 #define HAL_TEMP_18B20_DQ_PIN 0x3b //pd11
 #define HAL_WIRED_PROTO_485DE_PIN 0x0b //pa11
 #define HAL_IR_TX_EN_PIN 0x45  //pe5
+#define HAL_PCCOM_485DE_PIN 0x2a //pc10
+
 
 #else //new one
 
@@ -83,6 +86,7 @@ typedef enum
 #define HAL_TEMP_18B20_DQ_PIN 0x03 //pa3
 #define HAL_WIRED_PROTO_485DE_PIN 0x0b //pa11
 #define HAL_IR_TX_EN_PIN 0x27  //pc7
+#define HAL_PCCOM_485DE_PIN 0x2c //pc12
 
 #endif
 

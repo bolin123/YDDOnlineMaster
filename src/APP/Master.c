@@ -55,23 +55,10 @@ static void pcDataReport(void)
                 dlen = 0;
                 HalWdgFeed();
             }
-            else
-            {
-                dlen += deviceDataToBuff(node, &reportData->data[dlen]);
-            #if 0
-                reportData->data[dlen++] = node->addr;
-                reportData->data[dlen++] = node->devType;
-                reportData->data[dlen++] = node->errcode;
-                reportData->data[dlen++] = node->power;
-                memcpy(&reportData->data[dlen], &node->utctime, 4);
-                dlen += 4;
-                memcpy(&reportData->data[dlen], node->data, node->dataNum * 2);
-                dlen += node->dataNum * 2;
-            #endif
-                VTListDel(node);
-                free(node->data);
-                free(node);
-            }
+            dlen += deviceDataToBuff(node, &reportData->data[dlen]);
+            VTListDel(node);
+            free(node->data);
+            free(node);
         }
 
         if(dlen) //last packet
@@ -128,15 +115,23 @@ static void historyReport(void)
     }
 }
 
+static void updateUTCTimer(int now)
+{
+    int old;
+
+    old = (int)HalRTCGetUtc();
+    if(abs(now - old) > 10)
+    {
+        HalRTCSetUtc(now);
+    }
+}
+
 static void pcEventHandle(PCComEvent_t event, void *args)
 {
     switch(event)
     {
         case PCCOM_EVENT_DATA_REPORT:
-            if(((uint32_t)args - HalRTCGetUtc()) > 300)
-            {
-                HalRTCSetUtc((uint32_t)args);
-            }
+            updateUTCTimer((int)args);
             pcDataReport();
             g_dataReportTime = SysTime();
             break;
@@ -372,11 +367,18 @@ static void displayConfig(void)
     DispLoopStart(2);
 }
 
-static void irKeyEventHandle(IRKey_t key)
+static void irKeyEventHandle(uint8_t key, uint8_t *contents)
 {
+    int utctime;
+    
     Syslog("key = %d", key);
     DispLoopStop();
-    MenuKeyHandle(key);
+    if(IR_KEY_MENU == key)
+    {
+        memcpy(&utctime, contents, 4);
+        updateUTCTimer(utctime);
+    }
+    MenuKeyHandle((IRKey_t)key);
 }
 
 static void ledBlinkPoll(void)

@@ -89,9 +89,12 @@ static void periphClockInit(void)
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOE, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-    //RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
+#if defined(HAL_OLD_DEVICE)
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+#else
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART4, ENABLE);
+#endif
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);

@@ -68,18 +68,6 @@ void HalUartInitialize(void)
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
-    NVIC_InitStructure.NVIC_IRQChannel = UART4_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-/*
-    NVIC_InitStructure.NVIC_IRQChannel = USART3_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-*/
     GPIO_InitTypeDef GPIO_InitStructure;
     //uart1 io
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_9;  //TX
@@ -91,6 +79,32 @@ void HalUartInitialize(void)
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
 
+    
+#if defined(HAL_OLD_DEVICE)
+    NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    //uart2 io
+    GPIO_PinRemapConfig(GPIO_Remap_USART2, ENABLE);
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_5;  //TX
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOD, &GPIO_InitStructure);
+     
+    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_6;  //RX
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(GPIOD, &GPIO_InitStructure);
+#else //new
+    
+    NVIC_InitStructure.NVIC_IRQChannel = UART4_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
     //uart4 io
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_10;  //TX
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF_PP;
@@ -100,18 +114,8 @@ void HalUartInitialize(void)
     GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_11;  //RX
     GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
-/*
-    //uart3 io
-    GPIO_PinRemapConfig(GPIO_FullRemap_USART3, ENABLE);
-    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_8;  //TX
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-     
-    GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_9;  //RX
-    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(GPIOD, &GPIO_InitStructure);
-*/
+#endif
+
 }
 
 void HalUartPoll(void)
@@ -147,7 +151,6 @@ void HalUartWrite(uint8_t uart, const uint8_t *data, uint16_t len)
     }
     
 }
-#if 1
 
 void USART1_IRQHandler(void)
 {
@@ -163,6 +166,7 @@ void USART1_IRQHandler(void)
     }
 }
 
+#if defined(HAL_OLD_DEVICE)
 void USART2_IRQHandler(void)
 {
     uint8_t data;
@@ -176,6 +180,21 @@ void USART2_IRQHandler(void)
         }
     }
 }
+#else
+void UART4_IRQHandler(void)
+{
+    uint8_t data;
+    if(USART_GetITStatus(UART4, USART_IT_RXNE) != RESET)
+    {
+        USART_ClearITPendingBit(UART4, USART_IT_RXNE);
+        data = USART_ReceiveData(UART4);
+        if(g_uartConfig[HAL_UART_PORT_4].recvCb != NULL)
+        {
+            g_uartConfig[HAL_UART_PORT_4].recvCb(&data, 1);
+        }
+    }
+}
+
 #endif
 
 void USART3_IRQHandler(void)
@@ -192,17 +211,5 @@ void USART3_IRQHandler(void)
     }
 }
 
-void UART4_IRQHandler(void)
-{
-    uint8_t data;
-    if(USART_GetITStatus(UART4, USART_IT_RXNE) != RESET)
-    {
-        USART_ClearITPendingBit(UART4, USART_IT_RXNE);
-        data = USART_ReceiveData(UART4);
-        if(g_uartConfig[HAL_UART_PORT_4].recvCb != NULL)
-        {
-            g_uartConfig[HAL_UART_PORT_4].recvCb(&data, 1);
-        }
-    }
-}
+
 

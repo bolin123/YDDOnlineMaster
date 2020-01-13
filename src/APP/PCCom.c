@@ -2,13 +2,17 @@
 #include "Sys.h"
 #include "DeviceData.h"
 
+#if defined(HAL_OLD_DEVICE)
+#define PCCOM_UART_PORT HAL_UART_PORT_2
+#else
 #define PCCOM_UART_PORT HAL_UART_PORT_4
+#endif
 
 #define PCCOM_PROTO_HEAD1 'T'
 #define PCCOM_PROTO_HEAD2 'H'
-#define PCCOM_485DE_PIN 0x2c //pc12
-#define PCCOM_RECV_MODE() HalGPIOSetLevel(PCCOM_485DE_PIN, 0)
-#define PCCOM_SEND_MODE() HalGPIOSetLevel(PCCOM_485DE_PIN, 1)
+
+#define PCCOM_RECV_MODE() HalGPIOSetLevel(HAL_PCCOM_485DE_PIN, 0)
+#define PCCOM_SEND_MODE() HalGPIOSetLevel(HAL_PCCOM_485DE_PIN, 1)
 
 typedef enum
 {
@@ -121,12 +125,14 @@ static void pccomDataSend(PCComProtoCmd_t cmd, uint8_t *data, uint16_t length)
 
     bufflen = sizeof(PCComProto_t) + length + 1;
     HalUartWrite(PCCOM_UART_PORT, buff, bufflen);
-
+/*
     for(uint8_t i = 0; i < bufflen; i++)
     {
         printf("%02x ", buff[i]);
     }
     printf("\n");
+*/
+    Syslog("cmd = %d, len = %d", cmd, length);
     PCCOM_RECV_MODE();
 }
 
@@ -208,8 +214,8 @@ void PCComInit(PCComEventHandle_t eventHandle)
     g_eventHandle = eventHandle;
 
     //enable pin
-    HalGPIOConfig(PCCOM_485DE_PIN, HAL_IO_OUTPUT);//pa12
-    //HalGPIOSetLevel(PCCOM_485DE_PIN, 0);
+    HalGPIOConfig(HAL_PCCOM_485DE_PIN, HAL_IO_OUTPUT);//pa12
+    //HalGPIOSetLevel(HAL_PCCOM_485DE_PIN, 0);
     PCCOM_RECV_MODE();
 }
 
